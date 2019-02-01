@@ -8,6 +8,8 @@ public class CustomPhysicsCollider : MonoBehaviour
     protected Rigidbody2D _rb;
     protected BoxColliderInfo _colliderInfo;
 
+    protected int horizontalRayCount = 3;
+
     //Ground data
     private float _groundPositionY;
     private Vector2 _groundNormal;
@@ -40,9 +42,11 @@ public class CustomPhysicsCollider : MonoBehaviour
         _contactFilter.useTriggers = false;
         _contactFilter.layerMask = _collisionMask;
         _contactFilter.useLayerMask = true;
+
+        // Physics2D.igno
     }
 
-    private void FixedUpdate() {        
+    private void Update() {        
         _FindGroundPosition();
         if(_adjustObjectToGroundRotation == false) {
             _AdjustColliderToGroundRotation();    
@@ -50,7 +54,6 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         //Apply gracity
         _velocity += _gravityModifier * Physics2D.gravity * Time.deltaTime;
-        
         _velocity.x = Input.GetAxis("Horizontal") * 5;
 
         if(Input.GetKeyDown(KeyCode.Space)) {
@@ -58,94 +61,43 @@ public class CustomPhysicsCollider : MonoBehaviour
         }
         
         Vector2 deltaVelocity = _velocity * Time.deltaTime;
-        Vector2 moveAlongGround = new Vector2 (_groundNormal.y, -_groundNormal.x);
-        // Debug.Log(moveAlongGround.x);
+        Vector2 moveAlongGround = new Vector2 (_groundNormal.y, - _groundNormal.x);
 
         Vector2 moveX = moveAlongGround * deltaVelocity.x;
-        // _CalculateMovement(moveX, false);
 
-        // Vector2 moveY = Vector2.up * deltaVelocity.y;
-        // _CalculateMovement(moveY, true);
+
+        Vector2 moveY = Vector2.up * deltaVelocity.y;
+
+        transform.position = (Vector2)transform.position + moveX;// + moveY;
         
-        
-        
-        // _rb.position = _rb.position + velocity * Time.deltaTime;
-
-        //Check Collisions
-        int count = _colliderInfo.collider.Cast(moveX, _contactFilter, _hitBuffer, moveX.magnitude + _skinWidth);
-        _hitBufferList.Clear();
-        for (int i = 0; i < count; i++) {
-            _hitBufferList.Add(_hitBuffer[i]);
-        }
-
-        for (int i = 0; i < _hitBufferList.Count; i++) {
-            Debug.DrawRay(_hitBufferList[i].point, _hitBufferList[i].normal, Color.red);
-        }
-
-        transform.position = new Vector3(transform.position.x + moveX.x,transform.position.y,transform.position.z);
         _PlaceObjectToGround();
+    }
 
+    // private void CheckHorizontalCollisions(Vector2 move) {
         
-    }
-
-    private void CheckHorizontalCollisions() {
-
-    }
+    // }
 
     private void _PlaceObjectToGround() {
         float colliderBottomY = (_colliderInfo.sizeY / 2 - _colliderInfo.offsetY) * transform.lossyScale.y;
-        transform.position = new Vector3(transform.position.x, _groundPositionY + colliderBottomY + _skinWidth, transform.position.z);
+        transform.position = new Vector3(transform.position.x, _groundPositionY + colliderBottomY, transform.position.z);
         
         transform.rotation = Quaternion.identity;
-        // if(_adjustObjectToGroundRotation) transform.rotation = Quaternion.Euler(0,0,groundAngle);
-    }
-
-    private void _CalculateMovement(Vector2 move, bool y) {
-        float distance = move.magnitude;
-
-        int count = _rb.Cast(move, _contactFilter, _hitBuffer, distance + _skinWidth);
-        _hitBufferList.Clear();
-        for (int i = 0; i < count; i++) {
-            _hitBufferList.Add(_hitBuffer[i]);
-        }
-
-        foreach (RaycastHit2D hit in _hitBufferList)
-        {
-            Debug.DrawRay(hit.point, hit.normal * 2, Color.red);
-
-
-            Vector2 currentNormal = hit.normal;
-            float currentGroundAngle = Vector2.Angle(currentNormal, Vector2.up);
-
-            if(currentGroundAngle < _maxGroundAngle) {
-                _isGrounded = true;
-                if(y == true) {
-                    _groundNormal = currentNormal;
-                    currentNormal.x = 0;
-                }
-            }
-
-            float projection = Vector2.Dot(_velocity, currentNormal);
-            if(projection < 0) {
-                _velocity = _velocity - projection * currentNormal;
-            }
-
-            float modifiedDistance = hit.distance - _skinWidth;
-            distance = (modifiedDistance < distance)? modifiedDistance : distance;
-        }
-
-        _rb.position = _rb.position + move.normalized * distance;
     }
 
     private void _FindGroundPosition() {
+        Vector2 startPosition = (Vector2)transform.position;
+        startPosition -= Vector2.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y; // Adjust for collider bottom
+        startPosition += Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f; // Add half of the size of the collider
+        startPosition -= Vector2.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f; // Start on the left
+
+
+        Debug.DrawRay(startPosition, Vector2.down, Color.yellow);
         RaycastHit2D hit;
-        hit = Physics2D.Raycast((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight-_skinWidth), Vector2.down, float.MaxValue, _collisionMask);
+        hit = Physics2D.Raycast((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight/2-_skinWidth), Vector2.down, float.MaxValue, _collisionMask);
         if(hit) {
             _groundPositionY = hit.point.y;
             _groundNormal = hit.normal;
         }
-
-        Debug.DrawRay((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight-_skinWidth), Vector2.down * 5, Color.red);
     }    
 
     private void _AdjustColliderToGroundRotation() {
