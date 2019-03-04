@@ -70,7 +70,7 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         transform.position = (Vector2)transform.position + moveX;// + moveY;
         
-        _PlaceObjectToGround();
+        // _PlaceObjectToGround();
     }
 
     // private void CheckHorizontalCollisions(Vector2 move) {
@@ -86,12 +86,15 @@ public class CustomPhysicsCollider : MonoBehaviour
 
     private void _FindGroundPosition() {
         Vector2 startPosition = (Vector2)transform.position;
-        startPosition -= Vector2.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y; // Adjust for collider bottom
+        startPosition -= (Vector2)transform.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y; // Adjust for collider bottom
         startPosition += Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f; // Add half of the size of the collider
-        startPosition -= Vector2.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f; // Start on the left
+        startPosition -= (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f; // Start on the left
 
+        for (int i = 0; i < horizontalRayCount; i++) {
+            Vector2 newStartPosition = startPosition + i * ((Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2) / (horizontalRayCount-1f));
+            Debug.DrawRay(newStartPosition, Vector2.down, Color.yellow);
+        }
 
-        Debug.DrawRay(startPosition, Vector2.down, Color.yellow);
         RaycastHit2D hit;
         hit = Physics2D.Raycast((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight/2-_skinWidth), Vector2.down, float.MaxValue, _collisionMask);
         if(hit) {
