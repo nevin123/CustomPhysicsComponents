@@ -11,6 +11,7 @@ public class CustomPhysicsCollider : MonoBehaviour
     protected int horizontalRayCount = 3;
 
     //Ground data
+    private float _bottomPositionY;
     private float _groundPositionY;
     private Vector2 _groundNormal;
     protected bool _isGrounded = false;
@@ -48,9 +49,9 @@ public class CustomPhysicsCollider : MonoBehaviour
 
     private void Update() {        
         _FindGroundPosition();
-        if(_adjustObjectToGroundRotation == false) {
-            _AdjustColliderToGroundRotation();    
-        }
+        // if(_adjustObjectToGroundRotation == false) {
+        //     _AdjustColliderToGroundRotation();    
+        // }
 
         //Apply gracity
         _velocity += _gravityModifier * Physics2D.gravity * Time.deltaTime;
@@ -70,7 +71,7 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         transform.position = (Vector2)transform.position + moveX;// + moveY;
         
-        // _PlaceObjectToGround();
+        _PlaceObjectToGround();
     }
 
     // private void CheckHorizontalCollisions(Vector2 move) {
@@ -85,27 +86,62 @@ public class CustomPhysicsCollider : MonoBehaviour
     }
 
     private void _FindGroundPosition() {
-        Vector2 startPosition = (Vector2)transform.position;
-        startPosition -= (Vector2)transform.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y; // Adjust for collider bottom
-        startPosition += Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f; // Add half of the size of the collider
-        startPosition -= (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f; // Start on the left
+        Vector2 bottomPosition = (Vector2)transform.position;
+        bottomPosition -= (Vector2)transform.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y;    // Adjust for collider bottom
+        Vector2 startPosition = bottomPosition + Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f;                           // Add half of the size of the collider
+        startPosition -= (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f;                  // Start on the left
+        
+        _bottomPositionY = bottomPosition.y;
 
-        for (int i = 0; i < horizontalRayCount; i++) {
-            Vector2 newStartPosition = startPosition + i * ((Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2) / (horizontalRayCount-1f));
+        float width = (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2);
+        float minDistance = float.MaxValue;
+
+        for (int i = 0; i < 3; i++) {
+            RaycastHit2D hit;
+            Vector2 newStartPosition = startPosition + i * ((Vector2)transform.right * width / 2);
+            
+            hit = Physics2D.Raycast(newStartPosition,Vector2.down, float.MaxValue, _collisionMask);
+            if(hit) {
+                if(i != 1) continue;
+                if(hit.distance == 0) continue;
+                if(hit.normal.y != 1) {
+                    float angle = Vector2.Angle(hit.normal, Vector2.up);
+                    float heightDif = Mathf.Tan(angle * (Mathf.PI/180)) * (width)/2;
+                    
+                    if(i == 0) Debug.DrawRay(new Vector2(transform.position.x, hit.point.y + heightDif * Mathf.Sign(hit.normal.x) * (i-1)), hit.normal * 0.5f, Color.magenta);
+                    if(i == 1) Debug.DrawRay(new Vector2(transform.position.x, hit.point.y + heightDif * Mathf.Sign(hit.normal.x) * (i-1)), hit.normal * 0.7f, Color.cyan);
+                    if(i == 2) Debug.DrawRay(new Vector2(transform.position.x, hit.point.y + heightDif * Mathf.Sign(hit.normal.x) * (i-1)), hit.normal * 0.5f, Color.green);
+                    
+                    if(minDistance > hit.distance + heightDif * (i-1)) {
+                        minDistance = hit.distance - heightDif * Mathf.Sign(hit.normal.x) * (i-1);
+                        _groundPositionY = hit.point.y + heightDif * Mathf.Sign(hit.normal.x) * (i-1);
+                        _groundNormal = hit.normal;
+                    }
+                } else {
+                    if(minDistance > hit.distance) {
+                        _groundPositionY = hit.point.y;
+                        _groundNormal = hit.normal;
+                        minDistance = hit.distance;
+                    }
+                }
+                // Debug.DrawRay(hit.point, Vector2.right * 0.1f, Color.red);
+            }
+            
             Debug.DrawRay(newStartPosition, Vector2.down, Color.yellow);
         }
 
-        RaycastHit2D hit;
-        hit = Physics2D.Raycast((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight/2-_skinWidth), Vector2.down, float.MaxValue, _collisionMask);
-        if(hit) {
-            _groundPositionY = hit.point.y;
-            _groundNormal = hit.normal;
-        }
+        // RaycastHit2D hit;
+        // hit = Physics2D.Raycast((Vector2)transform.position + Vector2.up * (_colliderInfo.totalHeight/2-_skinWidth), Vector2.down, float.MaxValue, _collisionMask);
+        // if(hit) {
+        //     _groundPositionY = hit.point.y;
+        //     _groundNormal = hit.normal;
+        // }
     }    
 
     private void _AdjustColliderToGroundRotation() {
-        float groundAngle = Vector2.Angle(_groundNormal, Vector2.up) * -(int)Mathf.Sign(_groundNormal.x);
-        float slopeCorrectionHeight = Mathf.Abs(Mathf.Tan(groundAngle * (Mathf.PI / 180)) * (_colliderInfo.collider.size.x/2f * transform.lossyScale.x));
+        // float groundAngle = Vector2.Angle(_groundNormal, Vector2.up) * -(int)Mathf.Sign(_groundNormal.x);
+        // float slopeCorrectionHeight = Mathf.Abs(Mathf.Tan(groundAngle * (Mathf.PI / 180)) * (_colliderInfo.collider.size.x/2f * transform.lossyScale.x));
+        float slopeCorrectionHeight = Mathf.Abs(Mathf.Abs(_groundPositionY) - Mathf.Abs(_bottomPositionY));
 
         float scaleFactor = (_colliderInfo.totalHeight - slopeCorrectionHeight) / _colliderInfo.totalHeight;
         _colliderInfo.collider.size = new Vector2(_colliderInfo.collider.size.x, _colliderInfo.sizeY * scaleFactor);
