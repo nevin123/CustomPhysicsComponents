@@ -16,7 +16,7 @@ public class CustomPhysicsCollider : MonoBehaviour
     private float _bottomPositionY;
     private float _groundPositionY;
     private Vector2 _groundNormal;
-    protected bool _isGrounded = false;
+    public bool _isGrounded = false;
 
     //Physics
     protected Vector2 _targetVelocity;
@@ -68,7 +68,8 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         
         Vector2 newVelocity = moveX + moveY;
-        if(newVelocity.y > 0) _CheckTopCollision(ref newVelocity);
+        // if(newVelocity.y > 0) 
+        _CheckTopCollision(ref newVelocity);
 
         Vector2 newPos = (Vector2)transform.position + newVelocity;
         newPos.x = Mathf.Round(newPos.x * 1000f) / 1000f;
@@ -81,7 +82,8 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         _groundPositionY = Mathf.Round(_groundPositionY * 1000f) / 1000f;
 
-        if(transform.position.y <= _groundPositionY) {
+        Debug.Log(Mathf.Abs(_velocity.y));
+        if((transform.position.y <= _groundPositionY) || (Mathf.Abs(_velocity.y) < 5f && Mathf.Abs(transform.position.y-_groundPositionY) < 0.2f)) {
             Vector3 pos = transform.position;
             pos.y = _groundPositionY;
             transform.position = pos;
@@ -110,8 +112,8 @@ public class CustomPhysicsCollider : MonoBehaviour
     private void _CheckTopCollision(ref Vector2 velocity) {
         Vector2 topPosition = (Vector2)transform.position;
         topPosition += (Vector2)transform.up * ((_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y)+_colliderInfo.collider.size.y) * transform.lossyScale.y;    // Adjust for collider top
-        Vector2 startPosition = topPosition - Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f;                              // Add half of the size of the collider
-        startPosition -= (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f;                  // Start on the left
+        Vector2 startPosition = topPosition - Vector2.up * _colliderInfo.collider.size.y * transform.lossyScale.y / 2f;                                                           // Add half of the size of the collider
+        startPosition -= (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / 2f;                                               // Start on the left
 
         float width = (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2);
         float minDistance = velocity.y + (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth);
@@ -127,7 +129,7 @@ public class CustomPhysicsCollider : MonoBehaviour
                 if(hit.distance==0) continue;
                 minDistance = hit.distance + _skinWidth;
                 hitNormal = hit.normal;
-                velocity.y = minDistance - (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth * 2);
+                velocity.y = minDistance - (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth);
                 _velocity.y += -5 * Time.deltaTime;
 
                 if(_isGrounded) { 
@@ -138,6 +140,10 @@ public class CustomPhysicsCollider : MonoBehaviour
 
             Debug.DrawRay(newStartPosition, Vector2.up * minDistance, Color.blue);
         }
+    }
+
+    private void _CheckHorizontalCollision(ref Vector2 velocity) {
+
     }
 
     private void _FindGroundPosition() {
