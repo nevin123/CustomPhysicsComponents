@@ -14,13 +14,14 @@ public class CustomPhysicsCollider : MonoBehaviour
 
     //Ground data
     private float _bottomPositionY;
-    private float _groundPositionY;
+    private float _groundPositionY = float.MinValue;
     private Vector2 _groundNormal;
     public bool _isGrounded = false;
 
     //Physics
     protected Vector2 _targetVelocity;
     protected Vector2 _velocity;
+    public Vector2 velocity;
 
     //Collision Checking
     protected ContactFilter2D _contactFilter;
@@ -59,6 +60,7 @@ public class CustomPhysicsCollider : MonoBehaviour
         
         Vector2 deltaVelocity = _velocity * Time.deltaTime;
         Move(deltaVelocity);
+        velocity = _velocity;
     }
 
     private void Move(Vector2 deltaVelocity) {
@@ -82,7 +84,6 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         _groundPositionY = Mathf.Round(_groundPositionY * 1000f) / 1000f;
 
-        Debug.Log(Mathf.Abs(_velocity.y));
         if((transform.position.y <= _groundPositionY) || (Mathf.Abs(_velocity.y) < 5f && Mathf.Abs(transform.position.y-_groundPositionY) < 0.2f)) {
             Vector3 pos = transform.position;
             pos.y = _groundPositionY;
@@ -118,7 +119,7 @@ public class CustomPhysicsCollider : MonoBehaviour
         float width = (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2);
         float minDistance = velocity.y + (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth);
         Vector2 hitNormal;
-        
+
         for(int i = 0; i < 3; i++) {
             Vector2 newStartPosition = startPosition + i * ((Vector2)transform.right * width / 2);
             
@@ -156,6 +157,7 @@ public class CustomPhysicsCollider : MonoBehaviour
 
         float width = (_colliderInfo.collider.size.x * transform.lossyScale.x - _skinWidth * 2);
         float minDistance = float.MaxValue;
+        bool hitGround = false;
 
         for (int i = 0; i < 3; i++) {
             if(i != 1) continue;
@@ -173,6 +175,7 @@ public class CustomPhysicsCollider : MonoBehaviour
                         minDistance = hit.distance - heightDif * Mathf.Sign(hit.normal.x);
                         _groundPositionY = hit.point.y + heightDif * Mathf.Sign(hit.normal.x);
                         _groundNormal = hit.normal;
+                        hitGround = true;
                     }
 
                     #region Debugging
@@ -185,6 +188,8 @@ public class CustomPhysicsCollider : MonoBehaviour
             }
             Debug.DrawRay(newStartPosition, Vector2.down, Color.yellow);
         }
+
+        if(!hitGround) _groundPositionY = float.MinValue;
     }    
 
     private void _AdjustColliderToGroundRotation() {
