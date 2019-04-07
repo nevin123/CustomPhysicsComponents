@@ -133,9 +133,11 @@ public class CustomPhysicsCollider : MonoBehaviour
                 velocity.y = minDistance - (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth);
                 _velocity.y += -5 * Time.deltaTime;
 
-                if(_isGrounded) { 
-                    velocity.x = 0;
-                    _velocity.x = 0;
+                if(_isGrounded) {
+                    
+                    velocity.x = -(1 - _groundNormal.x) * (minDistance - (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth));
+                    _velocity.x = -(1 - _groundNormal.x) * (minDistance - (_colliderInfo.collider.size.y * transform.lossyScale.y / 2f + _skinWidth));
+                    Debug.Log(velocity.x);
                 }
             }
 
