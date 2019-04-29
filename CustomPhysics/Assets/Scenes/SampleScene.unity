@@ -962,9 +962,9 @@ MonoBehaviour:
   _collisionMask:
     serializedVersion: 2
     m_Bits: 256
-  feetWidth: 0.5
-  verticalRayCount: 3
-  horizontalRayCount: 3
+  _feetWidth: 0.5
+  _verticalRayCount: 3
+  _horizontalRayCount: 3
   _slopeMovementSpeedMultiplier: 0
   _maxGroundAngle: 40
 --- !u!61 &444455916

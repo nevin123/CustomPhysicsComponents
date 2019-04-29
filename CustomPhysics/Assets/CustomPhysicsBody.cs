@@ -18,9 +18,9 @@ public class CustomPhysicsBody : MonoBehaviour
     [SerializeField] protected LayerMask _collisionMask;
 
     [Header("Collision Settings")]
-    [SerializeField] protected float feetWidth = 0.5f;
-    [SerializeField] protected int verticalRayCount = 3;
-    [SerializeField] protected int horizontalRayCount = 3;
+    [SerializeField] protected float _feetWidth = 0.5f;
+    [SerializeField, Range(3,9)] protected int _verticalRayCount = 3;
+    [SerializeField, Range(3,9)] protected int _horizontalRayCount = 3;
 
     [Header("Player Settings")]
     [SerializeField] protected float _slopeMovementSpeedMultiplier = 0;
@@ -47,6 +47,7 @@ public class CustomPhysicsBody : MonoBehaviour
     }
 
     protected virtual void FixedUpdate() {
+        if(debug) DrawBox(Color.green);
         Move();
     }
 
@@ -105,9 +106,23 @@ public class CustomPhysicsBody : MonoBehaviour
     }
 
     private void HandleCollision(ref Vector2 deltaVelocity) {
-
+        VerticalCollision(ref deltaVelocity, 1);
     }
 
+    private void VerticalCollision(ref Vector2 deltaVelocity, int direction) {
+        Vector2 startPosition = _colliderInfo.GetBottomPosition(transform, _skinWidth) - (Vector2)transform.right * ((_feetWidth - _skinWidth * 2) / 2f);
+
+        for (int i = 0; i < _verticalRayCount; i++) {
+            
+            Vector2 rayStartPos = startPosition + (Vector2)transform.right * ((_feetWidth - _skinWidth * 2) / (_verticalRayCount-1f)) * i;
+
+            if(debug) {
+                Debug.DrawRay(rayStartPos, -transform.up * (Mathf.Abs(deltaVelocity.y) + _skinWidth * 2), Color.red);
+            }
+        }
+    }
+
+    /*
     private void LimitVelocityToCollision(ref Vector2 velocity) {
         // Vector2 bottomPosition = (Vector2)transform.position;
         // bottomPosition -= (Vector2)transform.up * (_colliderInfo.collider.size.y / 2 - _colliderInfo.collider.offset.y) * transform.lossyScale.y;
@@ -242,22 +257,19 @@ public class CustomPhysicsBody : MonoBehaviour
     //     _colliderInfo.collider.size = new Vector2(_colliderInfo.collider.size.x, _colliderInfo.sizeY * scaleFactor);
     //     _colliderInfo.collider.offset = new Vector2(_colliderInfo.collider.offset.x, _colliderInfo.offsetY + _colliderInfo.sizeY * (1-scaleFactor)/2f);
     // }
+    */
     
-    private void OnDrawGizmos() {
-        if(debug && Application.isPlaying) {
-            Gizmos.color = Color.green;
-
-            Vector2 bottom = _colliderInfo.GetBottomPosition(transform) + (Vector2)transform.up * _skinWidth;
-            Vector2 bottomLeft = bottom - (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x * 0.5f) + (Vector2)transform.right * _skinWidth;
-            Vector2 bottomRight = bottom + (Vector2)transform.right * (_colliderInfo.collider.size.x * transform.lossyScale.x * 0.5f) - (Vector2)transform.right * _skinWidth;
-            Vector2 topLeft = bottomLeft + (Vector2)transform.up * (_colliderInfo.collider.size.y * transform.lossyScale.y) - (Vector2)transform.up * _skinWidth * 2;
-            Vector2 topRight = bottomRight + (Vector2)transform.up * (_colliderInfo.collider.size.y * transform.lossyScale.y) - (Vector2)transform.up * _skinWidth * 2;
-            
-            Gizmos.DrawLine(bottomLeft, bottomRight);
-            Gizmos.DrawLine(bottomLeft, topLeft);
-            Gizmos.DrawLine(bottomRight, topRight);
-            Gizmos.DrawLine(topLeft, topRight);
-        }
+    private void DrawBox(Color color) {
+        Vector2 bottom = _colliderInfo.GetBottomPosition(transform, _skinWidth);
+        Vector2 bottomLeft = _colliderInfo.GetBottomLeftCorner(transform,_skinWidth);
+        Vector2 bottomRight = _colliderInfo.GetBottomRightCorner(transform,_skinWidth);
+        Vector2 topLeft = _colliderInfo.GetTopLeftCorner(transform,_skinWidth);
+        Vector2 topRight = _colliderInfo.GetTopRightCorner(transform,_skinWidth);
+        
+        Debug.DrawLine(bottomLeft, bottomRight, color);
+        Debug.DrawLine(bottomLeft, topLeft, color);
+        Debug.DrawLine(bottomRight, topRight, color);
+        Debug.DrawLine(topLeft, topRight, color);
     }
 }
 
@@ -282,10 +294,26 @@ public struct BoxColliderInfo {
         get { return _totalHeight; }
     }
 
-    public Vector2 GetBottomPosition (Transform transform) { 
+    public Vector2 GetBottomPosition (Transform transform, float skinWidth = 0) { 
         Vector2 bottomPosition = (Vector2)transform.position; // Get Transform
-        bottomPosition -= (Vector2)transform.up * (_collider.size.y / 2 - _collider.offset.y) * transform.lossyScale.y; // Adjust for collider top
+        bottomPosition += (Vector2)transform.up * (_collider.size.y / 2 - _collider.offset.y) * transform.lossyScale.y + (Vector2)transform.up * skinWidth; // Adjust for collider top
         return bottomPosition;
+    }
+
+    public Vector2 GetBottomLeftCorner (Transform transform, float skinWidth = 0) {
+        return GetBottomPosition(transform,skinWidth) - (Vector2)transform.right * (_collider.size.x * transform.lossyScale.x * 0.5f) + (Vector2)transform.right * skinWidth;
+    }
+
+    public Vector2 GetBottomRightCorner (Transform transform, float skinWidth = 0) {
+        return GetBottomPosition(transform,skinWidth) + (Vector2)transform.right * (_collider.size.x * transform.lossyScale.x * 0.5f) - (Vector2)transform.right * skinWidth;
+    }
+
+    public Vector2 GetTopLeftCorner (Transform transform, float skinWidth = 0) {
+        return GetBottomLeftCorner(transform, skinWidth) + (Vector2)transform.up * (_collider.size.y * transform.lossyScale.y) - (Vector2)transform.up * skinWidth * 2;
+    }
+    
+    public Vector2 GetTopRightCorner (Transform transform, float skinWidth = 0) {
+        return GetBottomRightCorner(transform, skinWidth) + (Vector2)transform.up * (_collider.size.y * transform.lossyScale.y) - (Vector2)transform.up * skinWidth * 2;
     }
 
     //Constructor
