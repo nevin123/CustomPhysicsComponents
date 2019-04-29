@@ -16,8 +16,11 @@ public class VerletRopeGenerator : MonoBehaviour
 
     [Space]
 
-    [SerializeField] private bool _pinStart = true;
-    [SerializeField] private bool _pinEnd = true;
+    [SerializeField] private RopeCapOption _startCap = RopeCapOption.Pinned;
+    [SerializeField] private RopeCapOption _endCap = RopeCapOption.Pinned;
+    [SerializeField] private Transform _startParent;
+    [SerializeField] private Transform _endParent;
+
     [Range(2,30)][SerializeField] private int _numberOfSegments = 10;
     
     [Space]
@@ -60,6 +63,7 @@ public class VerletRopeGenerator : MonoBehaviour
             }
             /////////////////////////////////////////////////////////////////////////////////
 
+            UpdateAnchors();
             UpdatePoints(Time.deltaTime);
             AddForces(Time.deltaTime);
 
@@ -68,7 +72,7 @@ public class VerletRopeGenerator : MonoBehaviour
             }
 
             for (int i = 0; i < (21 - _elasticity); i++) {
-                UpdateSticks(Time.deltaTime);
+                UpdateSticks();
             }
             DrawPointPosition();
             UpdateColliders();
@@ -93,7 +97,24 @@ public class VerletRopeGenerator : MonoBehaviour
             
             for (int i = 0; i < _numberOfSegments; i++) {
                 Vector2 pointPosition = firstPosition + dir.normalized * distancePerPoint * i;
-                points.Add(new Point( pointPosition.x, pointPosition.y, pointPosition.x, pointPosition.y,((i==0 && _pinStart) || (i==_numberOfSegments-1 && _pinEnd))?true:false));
+                
+                Transform parent = null;
+                if(i==0) {
+                    if(_startCap == RopeCapOption.Movable) {
+                        parent = new GameObject().transform;
+                        if(_startParent != null) parent.SetParent(_startParent, true); 
+                        else parent.SetParent(transform, true);
+                        parent.position = pointPosition;
+                    }
+                } else if(i==_numberOfSegments-1) {
+                    if(_endCap == RopeCapOption.Movable) {
+                        parent = new GameObject().transform;
+                        if(_endParent != null) parent.SetParent(_endParent, true); 
+                        else parent.SetParent(transform, true);
+                        parent.position = pointPosition;
+                    }
+                }
+                points.Add(new Point( pointPosition.x, pointPosition.y, pointPosition.x, pointPosition.y,((i==0 && _startCap != RopeCapOption.Unpinned) || (i==_numberOfSegments-1 && _endCap != RopeCapOption.Unpinned))?true:false, parent));
 
                 if(i != 0) {
                     sticks.Add(new Stick(points[i-1], points[i], distancePerPoint, _tension));
@@ -211,7 +232,7 @@ public class VerletRopeGenerator : MonoBehaviour
                 {
                     UpdatePoints(0.03f);
                     for (int j = 0; j < (5-_elasticity); j++) {
-                        UpdateSticks(1);
+                        UpdateSticks();
                     }
                 }
             }
@@ -231,6 +252,15 @@ public class VerletRopeGenerator : MonoBehaviour
     #endregion
 
     #region Verlet Functions
+
+        private void UpdateAnchors() {
+            for (int i = 0; i < points.Count; i++) {
+                if(points[i].isStatic && points[i].parent != null) {
+                    points[i].x = points[i].parent.position.x;
+                    points[i].y = points[i].parent.position.y;
+                }
+            }
+        }
 
         private void UpdatePoints(float deltaTime) {
             for (int i = 0; i < points.Count; i++) {
@@ -260,7 +290,7 @@ public class VerletRopeGenerator : MonoBehaviour
             forces = new Vector2[points.Count];
         }
 
-        private void UpdateSticks(float deltaTime) {
+        private void UpdateSticks() {
             for (int i = 0; i < sticks.Count; i++) {
                 Stick stick = sticks[i];
                 float dx = stick.p1.x - stick.p0.x;
@@ -287,7 +317,12 @@ public class VerletRopeGenerator : MonoBehaviour
             for (int i = 0; i < points.Count; i++) {
                 Point point = points[i];
                 Vector2 position = new Vector2(point.x, point.y);
-                joints[i].position = (Vector2)transform.position + position;
+                if(point.isStatic && point.parent == null) {
+                    point.x = joints[i].position.x;
+                    point.y = joints[i].position.y;
+                } else {
+                    joints[i].position = position;
+                }
                 
                 float angle = 0;
                 if(i == 0) {
@@ -308,7 +343,7 @@ public class VerletRopeGenerator : MonoBehaviour
             if(colliders == null || colliders.Length < points.Count-2 || colliders[0] == null) return;
             for (int i = 0; i < points.Count-1; i++) {
                 Vector2 position = new Vector2(points[i].x, points[i].y);
-                colliders[i].position = (Vector2)transform.position + position;
+                colliders[i].position = position;
                 Vector2 dir = new Vector2(points[i+1].x, points[i+1].y) - new Vector2(points[i].x,points[i].y);
                 float angle = Mathf.Atan2(dir.y,dir.x) * 180 / Mathf.PI;
                 colliders[i].rotation = Quaternion.Euler(0,0,angle);
@@ -366,17 +401,19 @@ public class VerletRopeGenerator : MonoBehaviour
 
 class Point {
     public bool isStatic = false;
+    public Transform parent;
     public float x;
     public float y;
     public float oldX;
     public float oldY;
 
-    public Point(float x, float y, float oldX, float oldY, bool isStatic) {
+    public Point(float x, float y, float oldX, float oldY, bool isStatic, Transform parent = null) {
         this.x = x;
         this.y = y;
         this.oldX = oldX;
         this.oldY = oldY;
         this.isStatic = isStatic;
+        this.parent = parent;
     }
 }
 
@@ -398,4 +435,10 @@ public enum CollisionQuality {
     None,
     Box,
     Capsule
+}
+
+public enum RopeCapOption {
+    Pinned,
+    Unpinned,
+    Movable
 }
