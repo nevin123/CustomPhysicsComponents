@@ -37,6 +37,7 @@ public class CustomPhysicsBody : MonoBehaviour
     //Physics
     private Vector2 _targetVelocity;
     protected Vector2 _velocity;
+    protected Vector2 _extraForces;
     // private int _lastX;
 
 
@@ -47,7 +48,7 @@ public class CustomPhysicsBody : MonoBehaviour
     }
 
     protected virtual void FixedUpdate() {
-        if(debug) DrawBox(Color.green);
+        if(debug) DrawBoxGizmos(Color.green);
         Move();
     }
 
@@ -56,16 +57,22 @@ public class CustomPhysicsBody : MonoBehaviour
     }
 
     private void Move() {
+        _collisionData.isGrounded = false;
+
         _velocity.x = _targetVelocity.x;
         if(_targetVelocity.y != 0) {
             _velocity.y = _targetVelocity.y;
             _targetVelocity.y = 0;
         }
 
-        _velocity += _physicsData.gravity * Time.fixedDeltaTime;
+        _velocity += _physicsData.gravity * Time.fixedDeltaTime + _extraForces;
 
         Vector2 deltaVelocity = _velocity * Time.fixedDeltaTime;
+        if(deltaVelocity.x != 0) _collisionData.lastDirection = (int)Mathf.Sign(deltaVelocity.x);
+
         HandleCollision(ref deltaVelocity);
+
+        if(_collisionData.isGrounded) _velocity.y = 0;
 
         //Add velocity
         transform.position += (Vector3)deltaVelocity;
@@ -106,18 +113,90 @@ public class CustomPhysicsBody : MonoBehaviour
     }
 
     private void HandleCollision(ref Vector2 deltaVelocity) {
-        VerticalCollision(ref deltaVelocity, 1);
+        if(deltaVelocity.y <= 0) BottomCollision(ref deltaVelocity);
+        if(deltaVelocity.y >= 0) TopCollision(ref deltaVelocity);
+
+        HorizontalCollision(ref deltaVelocity, 1);
+        HorizontalCollision(ref deltaVelocity, -1);
     }
 
-    private void VerticalCollision(ref Vector2 deltaVelocity, int direction) {
+    private void BottomCollision(ref Vector2 deltaVelocity) {
         Vector2 startPosition = _colliderInfo.GetBottomPosition(transform, _skinWidth) - (Vector2)transform.right * ((_feetWidth - _skinWidth * 2) / 2f);
-
+        
+        float minDistance = (deltaVelocity.y<=0)?Mathf.Abs(deltaVelocity.y) + _skinWidth * 2:_skinWidth;
         for (int i = 0; i < _verticalRayCount; i++) {
-            
             Vector2 rayStartPos = startPosition + (Vector2)transform.right * ((_feetWidth - _skinWidth * 2) / (_verticalRayCount-1f)) * i;
 
+            RaycastHit2D hit = Physics2D.Raycast(rayStartPos, -transform.up, minDistance, _collisionMask);
+            if(hit) {
+                if(hit.distance == 0) continue;
+                minDistance = hit.distance;
+
+                deltaVelocity.y = -minDistance + _skinWidth;
+                _collisionData.isGrounded = true;
+            }
+
             if(debug) {
-                Debug.DrawRay(rayStartPos, -transform.up * (Mathf.Abs(deltaVelocity.y) + _skinWidth * 2), Color.red);
+                Debug.DrawRay(rayStartPos, -transform.up * minDistance, Color.red);
+            }
+        }
+    }
+
+    private void TopCollision(ref Vector2 deltaVelocity) {
+        Vector2 startDeltaVelocity = deltaVelocity;
+        Vector2 startPosition = _colliderInfo.GetTopLeftCorner(transform, _skinWidth);
+        
+        float minDistance = (deltaVelocity.y>=0)?Mathf.Abs(deltaVelocity.y) + _skinWidth * 2:_skinWidth;
+        for (int i = 0; i < _verticalRayCount; i++) {
+            Vector2 rayStartPos = startPosition + (Vector2)transform.right * ((_colliderInfo.collider.size.x * transform.lossyScale.x - 2 * _skinWidth) / (_verticalRayCount - 1)) * i;
+
+            RaycastHit2D hit = Physics2D.Raycast(rayStartPos, transform.up, minDistance, _collisionMask);
+            if(hit) {
+                if(hit.distance == 0) continue;
+                minDistance = hit.distance;
+
+                float distance = minDistance - _skinWidth;
+
+                float newDeltaVelocityX = Mathf.Sign(hit.normal.x) * -hit.normal.y * (deltaVelocity.y);
+                // if(Mathf.Sign(startDeltaVelocity.x) != Mathf.Sign(newDeltaVelocityX) || Mathf.Abs(startDeltaVelocity.x) < Mathf.Abs(newDeltaVelocityX))
+                //     deltaVelocity.x = newDeltaVelocityX;
+                // deltaVelocity.y = Mathf.Abs(hit.normal.x) * deltaVelocity.y + distance;
+                deltaVelocity.y = distance;
+                _velocity.y = 0;
+            }
+
+            if(debug) {
+                Debug.DrawRay(rayStartPos, transform.up * minDistance, Color.red);
+            }
+        }
+    }
+
+    private void HorizontalCollision(ref Vector2 deltaVelocity, int direction) {
+        float deltaY = deltaVelocity.y;
+        float feetAdjustment = ((_feetWidth - _skinWidth * 2) / 2f);
+        Vector2 startPosition = _colliderInfo.GetBottomPosition(transform, _skinWidth) + (Vector2)transform.right * feetAdjustment * direction + new Vector2(0, deltaVelocity.y);
+        
+        feetAdjustment = _colliderInfo.collider.size.x * transform.lossyScale.x / 2f - feetAdjustment;
+        float minDistance = (_collisionData.lastDirection != direction)?(Mathf.Abs(deltaVelocity.x)>0)?feetAdjustment-_skinWidth:feetAdjustment:Mathf.Abs(deltaVelocity.x) + feetAdjustment;
+
+        for (int i = 0; i < _horizontalRayCount; i++) {
+            Vector2 rayStartPos = startPosition + (Vector2)transform.up * ((_colliderInfo.collider.size.y * transform.lossyScale.y - 2 * _skinWidth) / (_horizontalRayCount-1f)) * i;
+
+            RaycastHit2D hit = Physics2D.Raycast(rayStartPos, transform.right * direction, minDistance, _collisionMask);
+            if(hit) {
+                if(hit.distance == 0) continue;
+
+                float angle = Vector2.Angle(Vector2.up, hit.normal);
+                if(angle <= _maxGroundAngle) continue;
+                // _extraForces.x = Mathf.Abs(hit.normal.x) * Mathf.Abs(deltaVelocity.y) * Mathf.Sign(hit.normal.x);
+                minDistance = hit.distance;
+
+                deltaVelocity.x = (minDistance - feetAdjustment - _skinWidth * 0) * direction;
+                // deltaVelocity.y = (1-Mathf.Abs(hit.normal.y)) * deltaY;
+            }
+
+            if(debug) {
+                Debug.DrawRay(rayStartPos, transform.right * direction * minDistance, Color.red);
             }
         }
     }
@@ -259,7 +338,7 @@ public class CustomPhysicsBody : MonoBehaviour
     // }
     */
     
-    private void DrawBox(Color color) {
+    private void DrawBoxGizmos(Color color) {
         Vector2 bottom = _colliderInfo.GetBottomPosition(transform, _skinWidth);
         Vector2 bottomLeft = _colliderInfo.GetBottomLeftCorner(transform,_skinWidth);
         Vector2 bottomRight = _colliderInfo.GetBottomRightCorner(transform,_skinWidth);
@@ -338,4 +417,5 @@ public struct PhysicsData {
 public struct CollisionData {
     public bool isGrounded;
     public bool isOnSlope;
+    public int lastDirection;
 }
