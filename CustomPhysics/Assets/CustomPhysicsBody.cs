@@ -129,11 +129,8 @@ public class CustomPhysicsBody : MonoBehaviour
         // if(deltaVelocity.y > 0) 
         TopCollision(ref deltaVelocity, ref yHorizontal);
 
-        if(Mathf.Abs(deltaVelocity.x) > 0.01f) {
-            Debug.Log("test");
-            HorizontalCollision(ref deltaVelocity, yHorizontal, -1);
-            HorizontalCollision(ref deltaVelocity, yHorizontal, 1);
-        }
+        HorizontalCollision(ref deltaVelocity, yHorizontal, -1);
+        HorizontalCollision(ref deltaVelocity, yHorizontal, 1);
     }
 
     private void BottomCollision(ref Vector2 deltaVelocity, bool apply) {
